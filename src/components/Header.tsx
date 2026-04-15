@@ -53,8 +53,7 @@ export default function Header({ onOpenCart, onOpenAdmin }: HeaderProps) {
 
   const navLinks = [
     { name: "About", href: "/about" },
-    // Future: { name: "Blog", href: "/blog" },
-    // Future: { name: "Specials", href: "/specials" },
+    { name: "Specials", href: "/specials" },
   ];
 
   const socialLinks = [

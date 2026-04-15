@@ -75,7 +75,7 @@ export default function Index() {
 
       <Footer />
       <CartSidebar open={cartOpen} onClose={() => setCartOpen(false)} />
-      <AdminLoginModal open={adminLoginOpen} onClose={() => setAdminLoginOpen(false)} onLogin={() => {}} />
+      <AdminLoginModal open={adminLoginOpen} onClose={() => setAdminLoginOpen(false)} onLogin={() => { const { setAdminMode } = useApp(); setAdminMode(true); }} />
     </div>
   );
 }

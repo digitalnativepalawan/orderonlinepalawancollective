@@ -46,7 +46,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCartState] = useState<CartItem[]>(loadCart);
   const [orders, setOrdersState] = useState<Order[]>([]);
   const [business, setBusinessState] = useState<BusinessSettings>({
-    businessName: "Jaycee's Pantry", phone: "", email: "", facebook: "", instagram: "",
+    businessName: "JayCee Trading & Services", phone: "", email: "", facebook: "", instagram: "",
     address: "", logoBase64: "", whatsappTemplate: "", invoiceFooter: "", taxRate: 0,
   });
   const [adminMode, setAdminMode] = useState(() => localStorage.getItem("admin_session") === "true");
@@ -115,6 +115,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (cart.length === 0) return null;
     const orderId = generateOrderId();
     const now = new Date();
+    
+    // Calculate total cost and profit for this order
+    let totalCost = 0;
+    const orderItems = cart.map(i => {
+      const product = products.find(p => p.id === i.id);
+      const cost = product?.cost || (i.price * 0.80); // Default 20% margin if no cost
+      totalCost += cost * i.quantity;
+      return { 
+        name: i.name, 
+        quantity: i.quantity, 
+        price: i.price, 
+        unit: i.unit,
+        cost: cost  // ✅ Include cost in order items
+      };
+    });
+    
+    const total = cart.reduce((s, i) => s + i.price * i.quantity, 0);
+    const profit = total - totalCost;
+    
     const order: Order = {
       id: orderId,
       date: now.toLocaleString(),
@@ -126,10 +145,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       deliveryType: data.deliveryType || "pickup",
       notes: data.notes || "",
       contact: `${data.countryCode}${data.phone}`,
-      items: cart.map(i => ({ name: i.name, quantity: i.quantity, price: i.price, unit: i.unit })),
-      total: cart.reduce((s, i) => s + i.price * i.quantity, 0),
+      items: orderItems,
+      total: total,
+      totalCost: totalCost,  // ✅ Save total cost
+      profit: profit,        // ✅ Save profit
       status: "Pending",
     };
+    
     // Update product inventory in DB
     const updatedProducts = products.map(p => {
       const ci = cart.find(c => c.id === p.id);
@@ -137,11 +159,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return p;
     });
     setProductsState(updatedProducts);
+    
     // Save inventory changes to DB
     for (const p of updatedProducts) {
       const ci = cart.find(c => c.id === p.id);
       if (ci) saveProductToDb(p);
     }
+    
     setOrdersState(prev => [order, ...prev]);
     await addOrderToDb(order);
     setCartState([]);
@@ -149,12 +173,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [cart, products]);
 
   const updateProduct = useCallback((product: Product) => {
-    setProductsState(prev => prev.map(p => p.id === product.id ? product : p));
-    saveProductToDb(product);
+    // Ensure cost is set (default to 20% margin if not provided)
+    const productWithCost = {
+      ...product,
+      cost: product.cost || (product.price * 0.80),
+    };
+    setProductsState(prev => prev.map(p => p.id === product.id ? productWithCost : p));
+    saveProductToDb(productWithCost);
   }, []);
 
   const addProduct = useCallback((product: Omit<Product, "id">) => {
-    addProductToDb(product).then(newProduct => {
+    // Ensure cost is set (default to 20% margin if not provided)
+    const productWithCost = {
+      ...product,
+      cost: product.cost || (product.price * 0.80),
+    };
+    addProductToDb(productWithCost).then(newProduct => {
       if (newProduct) setProductsState(prev => [...prev, newProduct]);
     });
   }, []);

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Product, CATEGORIES } from "@/lib/types";
-import { X, Upload, Image as ImageIcon } from "lucide-react";
+import { X, Upload, Image as ImageIcon, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ProductModalProps {
   open: boolean;

@@ -1,58 +1,191 @@
 import { Product, CartItem, Order, BusinessSettings } from "./types";
 import { buildDefaultProducts } from "./defaultProducts";
+import { supabase } from "@/integrations/supabase/client";
 
-const KEYS = {
-  PRODUCTS: "jc_products_v2",
-  ORDERS: "jc_orders_v2",
-  CART: "jc_cart_v2",
-  BUSINESS: "jc_business_v2",
-};
+const CART_KEY = "jc_cart_v2";
 
-const DEFAULT_BUSINESS: BusinessSettings = {
-  businessName: "Jaycee's Pantry",
-  phone: "09917093792",
-  email: "jayceepantry@gmail.com",
-  facebook: "Jaycee Trading And Services",
-  instagram: "@jaycee.tradingservices",
-  address: "For orders and inquiries",
-  logoBase64: "",
-  whatsappTemplate: "Hello {name}, your order #{id} is {status}. Total: ₱{total}. Thank you!",
-  invoiceFooter: "Thank you for your order! For inquiries, contact us.",
-  taxRate: 0,
-};
-
-function load<T>(key: string, fallback: () => T): T {
+// ---- Cart (stays in localStorage since it's per-session) ----
+export function loadCart(): CartItem[] {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = localStorage.getItem(CART_KEY);
     if (raw) return JSON.parse(raw);
   } catch {}
-  return fallback();
+  return [];
+}
+export function saveCart(c: CartItem[]) {
+  localStorage.setItem(CART_KEY, JSON.stringify(c));
 }
 
-function save(key: string, data: unknown) {
-  localStorage.setItem(key, JSON.stringify(data));
+// ---- Products (Cloud) ----
+function dbProductToApp(row: any): Product {
+  return {
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    price: Number(row.price),
+    unit: row.unit,
+    inventory: row.inventory,
+    image: row.image,
+    isAvailable: row.is_available,
+  };
 }
 
-export function loadProducts(): Product[] {
-  return load(KEYS.PRODUCTS, buildDefaultProducts);
+export async function loadProductsFromDb(): Promise<Product[]> {
+  const { data, error } = await supabase.from("products").select("*").order("created_at", { ascending: true });
+  if (error || !data || data.length === 0) {
+    // Seed default products if empty
+    const defaults = buildDefaultProducts();
+    await seedProducts(defaults);
+    return defaults;
+  }
+  return data.map(dbProductToApp);
 }
-export function saveProducts(p: Product[]) { save(KEYS.PRODUCTS, p); }
 
-export function loadCart(): CartItem[] {
-  return load(KEYS.CART, () => []);
+async function seedProducts(products: Product[]) {
+  const rows = products.map(p => ({
+    name: p.name,
+    category: p.category,
+    price: p.price,
+    unit: p.unit,
+    inventory: p.inventory,
+    image: p.image,
+    is_available: p.isAvailable,
+  }));
+  await supabase.from("products").insert(rows);
 }
-export function saveCart(c: CartItem[]) { save(KEYS.CART, c); }
 
-export function loadOrders(): Order[] {
-  return load(KEYS.ORDERS, () => []);
+export async function saveProductToDb(product: Product) {
+  await supabase.from("products").upsert({
+    id: product.id,
+    name: product.name,
+    category: product.category,
+    price: product.price,
+    unit: product.unit,
+    inventory: product.inventory,
+    image: product.image,
+    is_available: product.isAvailable,
+  });
 }
-export function saveOrders(o: Order[]) { save(KEYS.ORDERS, o); }
 
-export function loadBusiness(): BusinessSettings {
-  return load(KEYS.BUSINESS, () => ({ ...DEFAULT_BUSINESS }));
+export async function addProductToDb(product: Omit<Product, "id">): Promise<Product | null> {
+  const { data, error } = await supabase.from("products").insert({
+    name: product.name,
+    category: product.category,
+    price: product.price,
+    unit: product.unit,
+    inventory: product.inventory,
+    image: product.image,
+    is_available: product.isAvailable,
+  }).select().single();
+  if (error || !data) return null;
+  return dbProductToApp(data);
 }
-export function saveBusiness(b: BusinessSettings) { save(KEYS.BUSINESS, b); }
 
+export async function deleteProductFromDb(id: string) {
+  await supabase.from("products").delete().eq("id", id);
+}
+
+// ---- Orders (Cloud) ----
+function dbOrderToApp(row: any): Order {
+  return {
+    id: row.id,
+    date: row.date,
+    timestamp: row.timestamp,
+    customer: row.customer,
+    email: row.email,
+    phone: row.phone,
+    countryCode: row.country_code,
+    deliveryType: row.delivery_type as "delivery" | "pickup",
+    notes: row.notes,
+    contact: row.contact,
+    items: row.items as any,
+    total: Number(row.total),
+    status: row.status as any,
+  };
+}
+
+export async function loadOrdersFromDb(): Promise<Order[]> {
+  const { data, error } = await supabase.from("orders").select("*").order("created_at", { ascending: false });
+  if (error || !data) return [];
+  return data.map(dbOrderToApp);
+}
+
+export async function addOrderToDb(order: Order) {
+  await supabase.from("orders").insert({
+    id: order.id,
+    date: order.date,
+    timestamp: order.timestamp,
+    customer: order.customer,
+    email: order.email,
+    phone: order.phone,
+    country_code: order.countryCode,
+    delivery_type: order.deliveryType,
+    notes: order.notes,
+    contact: order.contact,
+    items: order.items as any,
+    total: order.total,
+    status: order.status,
+  });
+}
+
+export async function updateOrderStatusInDb(id: string, status: string) {
+  await supabase.from("orders").update({ status }).eq("id", id);
+}
+
+export async function deleteOrderFromDb(id: string) {
+  await supabase.from("orders").delete().eq("id", id);
+}
+
+// ---- Business Settings (Cloud) ----
+function dbBizToApp(row: any): BusinessSettings {
+  return {
+    businessName: row.business_name,
+    phone: row.phone,
+    email: row.email,
+    facebook: row.facebook,
+    instagram: row.instagram,
+    address: row.address,
+    logoBase64: row.logo_base64,
+    whatsappTemplate: row.whatsapp_template,
+    invoiceFooter: row.invoice_footer,
+    taxRate: Number(row.tax_rate),
+  };
+}
+
+export async function loadBusinessFromDb(): Promise<BusinessSettings> {
+  const { data, error } = await supabase.from("business_settings").select("*").limit(1).single();
+  if (error || !data) {
+    return {
+      businessName: "Jaycee's Pantry", phone: "09917093792", email: "jayceepantry@gmail.com",
+      facebook: "Jaycee Trading And Services", instagram: "@jaycee.tradingservices",
+      address: "For orders and inquiries", logoBase64: "",
+      whatsappTemplate: "Hello {name}, your order #{id} is {status}. Total: ₱{total}. Thank you!",
+      invoiceFooter: "Thank you for your order! For inquiries, contact us.", taxRate: 0,
+    };
+  }
+  return dbBizToApp(data);
+}
+
+export async function saveBusinessToDb(b: BusinessSettings) {
+  // Get existing row id
+  const { data } = await supabase.from("business_settings").select("id").limit(1).single();
+  if (data) {
+    await supabase.from("business_settings").update({
+      business_name: b.businessName,
+      phone: b.phone,
+      email: b.email,
+      facebook: b.facebook,
+      instagram: b.instagram,
+      address: b.address,
+      logo_base64: b.logoBase64,
+      whatsapp_template: b.whatsappTemplate,
+      invoice_footer: b.invoiceFooter,
+      tax_rate: b.taxRate,
+    }).eq("id", data.id);
+  }
+}
+
+// ---- CSV Export/Import (kept for admin tools) ----
 export function exportProductsCSV(products: Product[]): string {
   const headers = ["id", "name", "category", "price", "unit", "inventory", "isAvailable", "image"];
   const rows = products.map(p =>

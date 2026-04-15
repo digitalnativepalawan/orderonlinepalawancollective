@@ -1,8 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { Product, CartItem, Order, BusinessSettings, CheckoutData, OrderStatus } from "@/lib/types";
 import {
-  loadProducts, saveProducts, loadCart, saveCart,
-  loadOrders, saveOrders, loadBusiness, saveBusiness,
+  loadProductsFromDb, saveProductToDb, addProductToDb, deleteProductFromDb,
+  loadCart, saveCart,
+  loadOrdersFromDb, addOrderToDb, updateOrderStatusInDb,
+  loadBusinessFromDb, saveBusinessToDb,
 } from "@/lib/store";
 
 function generateOrderId(): string {
@@ -17,13 +19,14 @@ interface AppState {
   orders: Order[];
   business: BusinessSettings;
   adminMode: boolean;
+  loading: boolean;
   setAdminMode: (v: boolean) => void;
   setProducts: (p: Product[]) => void;
   addToCart: (product: Product) => boolean;
   updateCartQty: (id: string, delta: number) => void;
   removeFromCart: (id: string) => void;
   clearCart: () => void;
-  checkout: (data: CheckoutData) => string | null;
+  checkout: (data: CheckoutData) => Promise<string | null>;
   updateProduct: (product: Product) => void;
   addProduct: (product: Omit<Product, "id">) => void;
   deleteProduct: (id: string) => void;
@@ -39,16 +42,39 @@ interface AppState {
 const AppContext = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [products, setProductsState] = useState<Product[]>(loadProducts);
+  const [products, setProductsState] = useState<Product[]>([]);
   const [cart, setCartState] = useState<CartItem[]>(loadCart);
-  const [orders, setOrdersState] = useState<Order[]>(loadOrders);
-  const [business, setBusinessState] = useState<BusinessSettings>(loadBusiness);
+  const [orders, setOrdersState] = useState<Order[]>([]);
+  const [business, setBusinessState] = useState<BusinessSettings>({
+    businessName: "Jaycee's Pantry", phone: "", email: "", facebook: "", instagram: "",
+    address: "", logoBase64: "", whatsappTemplate: "", invoiceFooter: "", taxRate: 0,
+  });
   const [adminMode, setAdminMode] = useState(() => localStorage.getItem("admin_session") === "true");
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => { saveProducts(products); }, [products]);
+  // Load all data from Cloud on mount
+  useEffect(() => {
+    async function init() {
+      try {
+        const [prods, ords, biz] = await Promise.all([
+          loadProductsFromDb(),
+          loadOrdersFromDb(),
+          loadBusinessFromDb(),
+        ]);
+        setProductsState(prods);
+        setOrdersState(ords);
+        setBusinessState(biz);
+      } catch (err) {
+        console.error("Failed to load data from Cloud:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    init();
+  }, []);
+
+  // Cart stays in localStorage
   useEffect(() => { saveCart(cart); }, [cart]);
-  useEffect(() => { saveOrders(orders); }, [orders]);
-  useEffect(() => { saveBusiness(business); }, [business]);
   useEffect(() => {
     if (adminMode) localStorage.setItem("admin_session", "true");
     else localStorage.removeItem("admin_session");
@@ -85,7 +111,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const clearCart = useCallback(() => setCartState([]), []);
 
-  const checkout = useCallback((data: CheckoutData): string | null => {
+  const checkout = useCallback(async (data: CheckoutData): Promise<string | null> => {
     if (cart.length === 0) return null;
     const orderId = generateOrderId();
     const now = new Date();
@@ -104,44 +130,71 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       total: cart.reduce((s, i) => s + i.price * i.quantity, 0),
       status: "Pending",
     };
-    setProductsState(prev => prev.map(p => {
+    // Update product inventory in DB
+    const updatedProducts = products.map(p => {
       const ci = cart.find(c => c.id === p.id);
       if (ci) return { ...p, inventory: Math.max(0, p.inventory - ci.quantity) };
       return p;
-    }));
+    });
+    setProductsState(updatedProducts);
+    // Save inventory changes to DB
+    for (const p of updatedProducts) {
+      const ci = cart.find(c => c.id === p.id);
+      if (ci) saveProductToDb(p);
+    }
     setOrdersState(prev => [order, ...prev]);
+    await addOrderToDb(order);
     setCartState([]);
     return orderId;
-  }, [cart]);
+  }, [cart, products]);
 
   const updateProduct = useCallback((product: Product) => {
     setProductsState(prev => prev.map(p => p.id === product.id ? product : p));
+    saveProductToDb(product);
   }, []);
 
   const addProduct = useCallback((product: Omit<Product, "id">) => {
-    setProductsState(prev => [...prev, { ...product, id: `p${Date.now()}` }]);
+    addProductToDb(product).then(newProduct => {
+      if (newProduct) setProductsState(prev => [...prev, newProduct]);
+    });
   }, []);
 
   const deleteProduct = useCallback((id: string) => {
     setProductsState(prev => prev.filter(p => p.id !== id));
+    deleteProductFromDb(id);
   }, []);
 
   const toggleAvailability = useCallback((id: string) => {
-    setProductsState(prev => prev.map(p => p.id === id ? { ...p, isAvailable: !p.isAvailable } : p));
+    setProductsState(prev => {
+      const updated = prev.map(p => p.id === id ? { ...p, isAvailable: !p.isAvailable } : p);
+      const product = updated.find(p => p.id === id);
+      if (product) saveProductToDb(product);
+      return updated;
+    });
   }, []);
 
   const updateInventory = useCallback((id: string, val: number) => {
-    setProductsState(prev => prev.map(p => p.id === id ? { ...p, inventory: val } : p));
+    setProductsState(prev => {
+      const updated = prev.map(p => p.id === id ? { ...p, inventory: val } : p);
+      const product = updated.find(p => p.id === id);
+      if (product) saveProductToDb(product);
+      return updated;
+    });
   }, []);
 
-  const setBusiness = useCallback((b: BusinessSettings) => setBusinessState(b), []);
+  const setBusiness = useCallback((b: BusinessSettings) => {
+    setBusinessState(b);
+    saveBusinessToDb(b);
+  }, []);
 
   const addOrder = useCallback((o: Order) => {
     setOrdersState(prev => [o, ...prev]);
+    addOrderToDb(o);
   }, []);
 
   const updateOrderStatus = useCallback((id: string, status: OrderStatus) => {
     setOrdersState(prev => prev.map(o => o.id === id ? { ...o, status } : o));
+    updateOrderStatusInDb(id, status);
   }, []);
 
   const cartTotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
@@ -149,7 +202,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AppContext.Provider value={{
-      products, cart, orders, business, adminMode, setAdminMode,
+      products, cart, orders, business, adminMode, loading, setAdminMode,
       setProducts, addToCart, updateCartQty, removeFromCart, clearCart,
       checkout, updateProduct, addProduct, deleteProduct, toggleAvailability,
       updateInventory, setBusiness, addOrder, updateOrderStatus, cartTotal, cartCount,

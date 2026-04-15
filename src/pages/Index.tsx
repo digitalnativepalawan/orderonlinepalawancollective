@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useApp } from "@/context/AppContext";
 import { Product, CATEGORIES, CATEGORY_ICONS } from "@/lib/types";
+import { Loader2 } from "lucide-react";
 import Header from "@/components/Header";
 import ProductCard from "@/components/ProductCard";
 import CartSidebar from "@/components/CartSidebar";
@@ -11,7 +12,7 @@ import { Search } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
 
 export default function Index() {
-  const { products, adminMode, setAdminMode } = useApp();
+  const { products, adminMode, setAdminMode, loading } = useApp();
   const [cartOpen, setCartOpen] = useState(false);
   const [adminLoginOpen, setAdminLoginOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -23,6 +24,14 @@ export default function Index() {
     if (category !== "all") list = list.filter(p => p.category === category);
     return list;
   }, [products, search, category]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="animate-spin text-primary" size={32} />
+      </div>
+    );
+  }
 
   if (adminMode) {
     return (

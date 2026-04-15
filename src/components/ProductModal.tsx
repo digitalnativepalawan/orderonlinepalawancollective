@@ -38,15 +38,30 @@ export default function ProductModal({ open, onClose, product, onSave }: Product
     }
   }, [product, open]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setImagePreview(ev.target?.result as string);
-      setImageUrl("");
-    };
-    reader.readAsDataURL(file);
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
+      const { error } = await supabase.storage.from('product-images').upload(fileName, file);
+      if (error) throw error;
+      const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(fileName);
+      setImageUrl(urlData.publicUrl);
+      setImagePreview("");
+    } catch (err) {
+      console.error('Upload failed:', err);
+      // Fallback to base64
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setImagePreview(ev.target?.result as string);
+        setImageUrl("");
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleSave = () => {

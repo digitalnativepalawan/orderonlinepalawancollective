@@ -107,8 +107,10 @@ export default function Footer() {
               <Link to="/about" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                 About Us
               </Link>
+              <Link to="/specials" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                Specials
+              </Link>
               {/* Future Links */}
-              {/* <Link to="/specials" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Specials</Link> */}
               {/* <Link to="/blog" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Blog</Link> */}
             </nav>
           </div>

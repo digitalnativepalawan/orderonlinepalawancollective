@@ -3,6 +3,8 @@ import { useApp } from "@/context/AppContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 import { toast } from "sonner";
+import CheckoutForm from "./CheckoutForm";
+import { CheckoutData } from "@/lib/types";
 
 interface CartSidebarProps {
   open: boolean;
@@ -12,17 +14,13 @@ interface CartSidebarProps {
 export default function CartSidebar({ open, onClose }: CartSidebarProps) {
   const { cart, cartTotal, updateCartQty, removeFromCart, checkout, products } = useApp();
   const [checkoutMode, setCheckoutMode] = useState(false);
-  const [name, setName] = useState("");
-  const [contact, setContact] = useState("");
 
-  const handleCheckout = () => {
+  const handleCheckout = (data: CheckoutData) => {
     if (cart.length === 0) { toast.error("Cart is empty"); return; }
-    const orderId = checkout(name, contact);
+    const orderId = checkout(data);
     if (orderId) {
-      toast.success(`Order #${orderId} placed!`);
+      toast.success(`Order ${orderId} placed!`);
       setCheckoutMode(false);
-      setName("");
-      setContact("");
       onClose();
     }
   };
@@ -100,14 +98,7 @@ export default function CartSidebar({ open, onClose }: CartSidebarProps) {
                   <span className="text-xl font-bold text-primary">₱{cartTotal.toFixed(2)}</span>
                 </div>
                 {checkoutMode ? (
-                  <div className="space-y-2">
-                    <input value={name} onChange={e => setName(e.target.value)} placeholder="Your name" className="w-full px-3 py-2.5 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground" />
-                    <input value={contact} onChange={e => setContact(e.target.value)} placeholder="Phone or email" className="w-full px-3 py-2.5 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground" />
-                    <div className="flex gap-2">
-                      <button onClick={() => setCheckoutMode(false)} className="flex-1 py-2.5 rounded-lg bg-secondary text-secondary-foreground font-medium text-sm">Cancel</button>
-                      <button onClick={handleCheckout} className="flex-1 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity">Place Order</button>
-                    </div>
-                  </div>
+                  <CheckoutForm onSubmit={handleCheckout} onCancel={() => setCheckoutMode(false)} />
                 ) : (
                   <button onClick={() => setCheckoutMode(true)} className="w-full py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:opacity-90 transition-opacity">
                     Checkout

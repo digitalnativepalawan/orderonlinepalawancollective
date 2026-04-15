@@ -1,37 +1,19 @@
 import { ReactNode } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { useApp } from "@/context/AppContext";
 import { useState } from "react";
 import CartSidebar from "@/components/CartSidebar";
 import AdminLoginModal from "@/components/AdminLoginModal";
+import { useApp } from "@/context/AppContext";
 
 interface LayoutProps {
   children: ReactNode;
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const { adminMode, setAdminMode } = useApp();
+  const { setAdminMode } = useApp();
   const [cartOpen, setCartOpen] = useState(false);
   const [adminLoginOpen, setAdminLoginOpen] = useState(false);
-
-  // If in admin mode, don't show header/footer
-  if (adminMode) {
-    return (
-      <>
-        {children}
-        <CartSidebar open={cartOpen} onClose={() => setCartOpen(false)} />
-        <AdminLoginModal 
-          open={adminLoginOpen} 
-          onClose={() => setAdminLoginOpen(false)} 
-          onLogin={() => {
-            setAdminMode(true);
-            setAdminLoginOpen(false);
-          }} 
-        />
-      </>
-    );
-  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -53,6 +35,8 @@ export default function Layout({ children }: LayoutProps) {
         onLogin={() => {
           setAdminMode(true);
           setAdminLoginOpen(false);
+          // Redirect to admin page after login
+          window.location.href = "/admin";
         }} 
       />
     </div>

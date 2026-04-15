@@ -5,7 +5,7 @@ export function buildDefaultProducts(): Product[] {
   let id = 1;
   const add = (name: string, cat: string, price: number, unit: string, inv: number) => {
     items.push({
-      id: `p${id++}`, name, category: cat, price, unit, inventory: inv,
+      id: crypto.randomUUID(), name, category: cat, price, unit, inventory: inv,
       image: `https://placehold.co/400x300/E8DCC8/6B5B3E?text=${encodeURIComponent(name.slice(0, 14))}`,
       isAvailable: true
     });

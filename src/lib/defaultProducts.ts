@@ -2,7 +2,6 @@ import { Product } from "./types";
 
 export function buildDefaultProducts(): Product[] {
   const items: Product[] = [];
-  let id = 1;
   const add = (name: string, cat: string, price: number, unit: string, inv: number) => {
     items.push({
       id: crypto.randomUUID(), name, category: cat, price, unit, inventory: inv,

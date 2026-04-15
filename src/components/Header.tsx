@@ -1,7 +1,8 @@
-import { Sun, Moon, ShoppingCart, Lock, LogOut } from "lucide-react";
+import { Sun, Moon, ShoppingCart, Lock, LogOut, Menu } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { useTheme } from "@/hooks/useTheme";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 interface HeaderProps {
   onOpenCart: () => void;
@@ -11,10 +12,18 @@ interface HeaderProps {
 export default function Header({ onOpenCart, onOpenAdmin }: HeaderProps) {
   const { business, adminMode, setAdminMode, cartCount } = useApp();
   const { dark, toggle } = useTheme();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const navLinks = [
+    { name: "About", href: "/about" },
+    // Add more later: { name: "Blog", href: "/blog" },
+    // Add more later: { name: "Specials", href: "/specials" },
+  ];
 
   return (
     <header className="sticky top-0 z-30 bg-card/80 backdrop-blur-md border-b border-border">
       <div className="container max-w-7xl mx-auto flex items-center justify-between py-3 px-4">
+        {/* Logo & Business Name */}
         <div className="flex items-center gap-3 min-w-0">
           {business.logoBase64 ? (
             <img src={business.logoBase64} alt="Logo" className="h-10 sm:h-12 w-auto object-contain rounded-lg" />
@@ -35,6 +44,20 @@ export default function Header({ onOpenCart, onOpenAdmin }: HeaderProps) {
           </div>
         </div>
 
+        {/* Desktop Navigation */}
+        <nav className="hidden md:flex items-center gap-6">
+          {navLinks.map((link) => (
+            <Link
+              key={link.name}
+              to={link.href}
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {link.name}
+            </Link>
+          ))}
+        </nav>
+
+        {/* Right Side Actions */}
         <div className="flex items-center gap-2">
           <button onClick={toggle} className="p-2.5 rounded-full bg-secondary text-secondary-foreground hover:bg-muted transition-colors" aria-label="Toggle theme">
             {dark ? <Sun size={18} /> : <Moon size={18} />}
@@ -58,8 +81,35 @@ export default function Header({ onOpenCart, onOpenAdmin }: HeaderProps) {
               </span>
             )}
           </button>
+
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden p-2.5 rounded-full bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
+            aria-label="Toggle menu"
+          >
+            <Menu size={18} />
+          </button>
         </div>
       </div>
+
+      {/* Mobile Navigation Menu */}
+      {mobileMenuOpen && (
+        <div className="md:hidden border-t border-border bg-card">
+          <nav className="container max-w-7xl mx-auto py-3 px-4 flex flex-col gap-2">
+            {navLinks.map((link) => (
+              <Link
+                key={link.name}
+                to={link.href}
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted px-3 py-2 rounded-lg transition-colors"
+              >
+                {link.name}
+              </Link>
+            ))}
+          </nav>
+        </div>
+      )}
     </header>
   );
 }

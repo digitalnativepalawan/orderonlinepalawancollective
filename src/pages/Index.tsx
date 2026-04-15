@@ -10,10 +10,24 @@ export default function Index() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
 
+  // Debug: Log products to console
+  useMemo(() => {
+    console.log("📦 Total products:", products.length);
+    console.log("📦 Available products:", products.filter(p => p.isAvailable).length);
+    console.log("📦 In stock products:", products.filter(p => p.inventory > 0).length);
+    console.log("📦 First 5 products:", products.slice(0, 5));
+  }, [products]);
+
   const filtered = useMemo(() => {
-    let list = products.filter(p => p.isAvailable && p.inventory > 0);
-    if (search) list = list.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
-    if (category !== "all") list = list.filter(p => p.category === category);
+    let list = products;  // ✅ Show ALL products (removed isAvailable && inventory filter)
+    
+    if (search) {
+      list = list.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+    }
+    if (category !== "all") {
+      list = list.filter(p => p.category === category);
+    }
+    
     return list;
   }, [products, search, category]);
 
@@ -50,7 +64,12 @@ export default function Index() {
       </div>
 
       {filtered.length === 0 ? (
-        <p className="text-center text-muted-foreground py-16 text-sm">No items found 🍽️</p>
+        <div className="text-center py-16">
+          <p className="text-muted-foreground mb-4">No items found 📭</p>
+          <p className="text-sm text-muted-foreground">
+            Products loaded: {products.length} | Filtered: {filtered.length}
+          </p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <AnimatePresence mode="popLayout">

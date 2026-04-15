@@ -106,8 +106,8 @@ export default function ProductModal({ open, onClose, product, onSave }: Product
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-card-foreground flex items-center gap-1.5"><ImageIcon size={14} /> Product Image</label>
-            <button onClick={() => fileRef.current?.click()} className="w-full py-3 rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <Upload size={16} /> Upload from device
+            <button onClick={() => fileRef.current?.click()} disabled={uploading} className="w-full py-3 rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors flex items-center justify-center gap-2 text-sm text-muted-foreground disabled:opacity-50">
+              {uploading ? <><Loader2 size={16} className="animate-spin" /> Uploading...</> : <><Upload size={16} /> Upload from device</>}
             </button>
             <input ref={fileRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
             {(imagePreview || imageUrl) && (

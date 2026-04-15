@@ -6,6 +6,7 @@ import { AppProvider } from "@/context/AppContext";
 import Layout from "@/components/Layout";
 import Index from "./pages/Index.tsx";
 import About from "./pages/About.tsx";
+import Specials from "./pages/Specials.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -19,6 +20,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Layout><Index /></Layout>} />
             <Route path="/about" element={<Layout><About /></Layout>} />
+            <Route path="/specials" element={<Layout><Specials /></Layout>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

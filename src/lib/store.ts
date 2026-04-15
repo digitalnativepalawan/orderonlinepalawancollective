@@ -1,9 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
-import { Product, Order, BusinessSettings } from "./types";
+import { Product, Order, BusinessSettings, CartItem } from "./types";
 
 // Supabase Configuration
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+console.log("Supabase URL:", supabaseUrl ? "✅ Set" : "❌ Missing");
+console.log("Supabase Key:", supabaseAnonKey ? "✅ Set" : "❌ Missing");
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn("Supabase credentials not found. Using localStorage fallback.");
@@ -17,55 +20,112 @@ const supabase = supabaseUrl && supabaseAnonKey
 // PRODUCTS
 // ============================================
 
+const PRODUCTS_KEY = "jaycee_products";
+
 export async function loadProductsFromDb(): Promise<Product[]> {
-  if (!supabase) return [];
-  
-  try {
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .order("created_at", { ascending: false });
-    
-    if (error) {
-      console.error("Error loading products:", error);
-      return [];
+  // Try Supabase first
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .order("created_at", { ascending: false });
+      
+      if (error) {
+        console.error("Supabase error loading products:", error);
+      } else if (data && data.length > 0) {
+        console.log("✅ Loaded", data.length, "products from Supabase");
+        return data as Product[];
+      } else {
+        console.warn("⚠️ Supabase returned empty products");
+      }
+    } catch (err) {
+      console.error("Supabase connection failed:", err);
     }
-    
-    return (data as Product[]) || [];
-  } catch (err) {
-    console.error("Failed to load products:", err);
-    return [];
   }
+  
+  // Fallback to localStorage (RECOVERY)
+  console.warn("🔄 Falling back to localStorage for products");
+  try {
+    const saved = localStorage.getItem(PRODUCTS_KEY);
+    if (saved) {
+      const localProducts = JSON.parse(saved);
+      console.log("✅ Recovered", localProducts.length, "products from localStorage");
+      return localProducts;
+    }
+  } catch (err) {
+    console.error("localStorage fallback failed:", err);
+  }
+  
+  return [];
 }
 
 export async function saveProductToDb(product: Product): Promise<void> {
-  if (!supabase) return;
+  // Save to Supabase
+  if (supabase) {
+    try {
+      const { error } = await supabase
+        .from("products")
+        .update({
+          name: product.name,
+          category: product.category,
+          price: product.price,
+          cost: product.cost || (product.price * 0.80),
+          unit: product.unit,
+          inventory: product.inventory,
+          isAvailable: product.isAvailable,
+          description: product.description || "",
+          image: product.imageBase64 || product.image || "",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", product.id);
+      
+      if (error) console.error("Error saving product:", error);
+      else console.log("✅ Product saved to Supabase:", product.name);
+    } catch (err) {
+      console.error("Failed to save product:", err);
+    }
+  }
   
+  // ALSO save to localStorage as backup
   try {
-    const { error } = await supabase
-      .from("products")
-      .update({
-        name: product.name,
-        category: product.category,
-        price: product.price,
-        cost: product.cost || (product.price * 0.80),
-        unit: product.unit,
-        inventory: product.inventory,
-        isAvailable: product.isAvailable,
-        description: product.description || "",
-        image: product.imageBase64 || product.image || "",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", product.id);
-    
-    if (error) console.error("Error saving product:", error);
+    const saved = localStorage.getItem(PRODUCTS_KEY);
+    const products = saved ? JSON.parse(saved) : [];
+    const index = products.findIndex((p: Product) => p.id === product.id);
+    if (index >= 0) {
+      products[index] = product;
+    } else {
+      products.push(product);
+    }
+    localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
+    console.log("✅ Product backed up to localStorage");
   } catch (err) {
-    console.error("Failed to save product:", err);
+    console.error("Failed to save to localStorage:", err);
   }
 }
 
 export async function addProductToDb(product: Omit<Product, "id">): Promise<Product | null> {
-  if (!supabase) return null;
+  if (!supabase) {
+    console.warn("⚠️ No Supabase connection, creating local product");
+    // Create product with local ID if no Supabase
+    const localProduct: Product = {
+      ...product,
+      id: `local_${Date.now()}`,
+      cost: product.cost || (product.price * 0.80),
+    } as Product;
+    
+    // Save to localStorage
+    try {
+      const saved = localStorage.getItem(PRODUCTS_KEY);
+      const products = saved ? JSON.parse(saved) : [];
+      products.push(localProduct);
+      localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
+      return localProduct;
+    } catch (err) {
+      console.error("Failed to save local product:", err);
+      return null;
+    }
+  }
   
   try {
     const { data, error } = await supabase
@@ -89,6 +149,7 @@ export async function addProductToDb(product: Omit<Product, "id">): Promise<Prod
       return null;
     }
     
+    console.log("✅ Product added to Supabase:", data.name);
     return data as Product;
   } catch (err) {
     console.error("Failed to add product:", err);
@@ -97,17 +158,31 @@ export async function addProductToDb(product: Omit<Product, "id">): Promise<Prod
 }
 
 export async function deleteProductFromDb(id: string): Promise<void> {
-  if (!supabase) return;
+  // Delete from Supabase
+  if (supabase) {
+    try {
+      const { error } = await supabase
+        .from("products")
+        .delete()
+        .eq("id", id);
+      
+      if (error) console.error("Error deleting product:", error);
+      else console.log("✅ Product deleted from Supabase");
+    } catch (err) {
+      console.error("Failed to delete product:", err);
+    }
+  }
   
+  // Also delete from localStorage backup
   try {
-    const { error } = await supabase
-      .from("products")
-      .delete()
-      .eq("id", id);
-    
-    if (error) console.error("Error deleting product:", error);
+    const saved = localStorage.getItem(PRODUCTS_KEY);
+    if (saved) {
+      const products = JSON.parse(saved);
+      const filtered = products.filter((p: Product) => p.id !== id);
+      localStorage.setItem(PRODUCTS_KEY, JSON.stringify(filtered));
+    }
   } catch (err) {
-    console.error("Failed to delete product:", err);
+    console.error("Failed to delete from localStorage:", err);
   }
 }
 
@@ -138,69 +213,109 @@ export function saveCart(cart: CartItem[]): void {
 // ORDERS
 // ============================================
 
+const ORDERS_KEY = "jaycee_orders";
+
 export async function loadOrdersFromDb(): Promise<Order[]> {
-  if (!supabase) return [];
-  
-  try {
-    const { data, error } = await supabase
-      .from("orders")
-      .select("*")
-      .order("timestamp", { ascending: false });
-    
-    if (error) {
-      console.error("Error loading orders:", error);
-      return [];
+  // Try Supabase first
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("*")
+        .order("timestamp", { ascending: false });
+      
+      if (!error && data && data.length > 0) {
+        console.log("✅ Loaded", data.length, "orders from Supabase");
+        return data as Order[];
+      }
+    } catch (err) {
+      console.error("Failed to load orders from Supabase:", err);
     }
-    
-    return (data as Order[]) || [];
-  } catch (err) {
-    console.error("Failed to load orders:", err);
-    return [];
   }
+  
+  // Fallback to localStorage
+  try {
+    const saved = localStorage.getItem(ORDERS_KEY);
+    if (saved) {
+      const localOrders = JSON.parse(saved);
+      console.log("✅ Recovered", localOrders.length, "orders from localStorage");
+      return localOrders;
+    }
+  } catch (err) {
+    console.error("localStorage orders fallback failed:", err);
+  }
+  
+  return [];
 }
 
 export async function addOrderToDb(order: Order): Promise<void> {
-  if (!supabase) return;
+  // Save to Supabase
+  if (supabase) {
+    try {
+      const { error } = await supabase
+        .from("orders")
+        .insert([{
+          id: order.id,
+          date: order.date,
+          timestamp: order.timestamp,
+          customer: order.customer,
+          email: order.email || "",
+          phone: order.phone || "",
+          countryCode: order.countryCode || "",
+          deliveryType: order.deliveryType,
+          notes: order.notes || "",
+          contact: order.contact || "",
+          items: order.items,
+          total: order.total,
+          totalCost: order.totalCost || 0,
+          profit: order.profit || 0,
+          status: order.status,
+        }]);
+      
+      if (error) console.error("Error adding order:", error);
+      else console.log("✅ Order saved to Supabase:", order.id);
+    } catch (err) {
+      console.error("Failed to add order:", err);
+    }
+  }
   
+  // ALSO save to localStorage as backup
   try {
-    const { error } = await supabase
-      .from("orders")
-      .insert([{
-        id: order.id,
-        date: order.date,
-        timestamp: order.timestamp,
-        customer: order.customer,
-        email: order.email || "",
-        phone: order.phone || "",
-        countryCode: order.countryCode || "",
-        deliveryType: order.deliveryType,
-        notes: order.notes || "",
-        contact: order.contact || "",
-        items: order.items,
-        total: order.total,
-        totalCost: order.totalCost || 0,
-        profit: order.profit || 0,
-        status: order.status,
-      }]);
-    
-    if (error) console.error("Error adding order:", error);
+    const saved = localStorage.getItem(ORDERS_KEY);
+    const orders = saved ? JSON.parse(saved) : [];
+    orders.unshift(order);
+    localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
   } catch (err) {
-    console.error("Failed to add order:", err);
+    console.error("Failed to save order to localStorage:", err);
   }
 }
 
 export async function updateOrderStatusInDb(id: string, status: string): Promise<void> {
-  if (!supabase) return;
+  // Update in Supabase
+  if (supabase) {
+    try {
+      const { error } = await supabase
+        .from("orders")
+        .update({ status })
+        .eq("id", id);
+      
+      if (error) console.error("Error updating order status:", error);
+      else console.log("✅ Order status updated in Supabase:", id);
+    } catch (err) {
+      console.error("Failed to update order status:", err);
+    }
+  }
   
+  // Also update in localStorage backup
   try {
-    const { error } = await supabase
-      .from("orders")
-      .update({ status })
-      .eq("id", id);
-    
-    if (error) console.error("Error updating order status:", error);
+    const saved = localStorage.getItem(ORDERS_KEY);
+    if (saved) {
+      const orders = JSON.parse(saved);
+      const updated = orders.map((o: Order) => o.id === id ? { ...o, status } : o);
+      localStorage.setItem(ORDERS_KEY, JSON.stringify(updated));
+    }
   } catch (err) {
-    console.error("Failed to update order status:", err);
+    console.error("Failed to update order in localStorage:", err);
   }
 }
 
@@ -221,6 +336,7 @@ export async function loadBusinessFromDb(): Promise<BusinessSettings> {
         .single();
       
       if (!error && data) {
+        console.log("✅ Loaded business settings from Supabase");
         return data as BusinessSettings;
       }
     } catch (err) {
@@ -231,39 +347,33 @@ export async function loadBusinessFromDb(): Promise<BusinessSettings> {
   // Fallback to localStorage
   try {
     const saved = localStorage.getItem(BUSINESS_KEY);
-    return saved ? JSON.parse(saved) : {
-      businessName: "JayCee Trading & Services",
-      phone: "",
-      email: "",
-      facebook: "",
-      instagram: "",
-      address: "",
-      logoBase64: "",
-      whatsappTemplate: "",
-      invoiceFooter: "",
-      taxRate: 0,
-    };
-  } catch {
-    return {
-      businessName: "JayCee Trading & Services",
-      phone: "",
-      email: "",
-      facebook: "",
-      instagram: "",
-      address: "",
-      logoBase64: "",
-      whatsappTemplate: "",
-      invoiceFooter: "",
-      taxRate: 0,
-    };
+    if (saved) {
+      console.log("✅ Loaded business settings from localStorage");
+      return JSON.parse(saved);
+    }
+  } catch (err) {
+    console.error("localStorage business fallback failed:", err);
   }
+  
+  // Default settings
+  return {
+    businessName: "JayCee Trading & Services",
+    phone: "",
+    email: "",
+    facebook: "",
+    instagram: "",
+    address: "",
+    logoBase64: "",
+    whatsappTemplate: "",
+    invoiceFooter: "",
+    taxRate: 0,
+  };
 }
 
 export async function saveBusinessToDb(settings: BusinessSettings): Promise<void> {
   // Save to Supabase
   if (supabase) {
     try {
-      // Check if settings exist
       const { data: existing } = await supabase
         .from("business_settings")
         .select("id")
@@ -271,7 +381,6 @@ export async function saveBusinessToDb(settings: BusinessSettings): Promise<void
         .single();
       
       if (existing) {
-        // Update existing
         const { error } = await supabase
           .from("business_settings")
           .update({
@@ -291,7 +400,6 @@ export async function saveBusinessToDb(settings: BusinessSettings): Promise<void
         
         if (error) console.error("Error saving business:", error);
       } else {
-        // Insert new
         const { error } = await supabase
           .from("business_settings")
           .insert([{
@@ -309,14 +417,16 @@ export async function saveBusinessToDb(settings: BusinessSettings): Promise<void
         
         if (error) console.error("Error saving business:", error);
       }
+      console.log("✅ Business settings saved to Supabase");
     } catch (err) {
       console.error("Failed to save business to Supabase:", err);
     }
   }
   
-  // Also save to localStorage as backup
+  // ALSO save to localStorage as backup
   try {
     localStorage.setItem(BUSINESS_KEY, JSON.stringify(settings));
+    console.log("✅ Business settings backed up to localStorage");
   } catch (err) {
     console.error("Failed to save business to localStorage:", err);
   }

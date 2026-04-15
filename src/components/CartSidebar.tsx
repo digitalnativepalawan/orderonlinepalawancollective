@@ -15,9 +15,9 @@ export default function CartSidebar({ open, onClose }: CartSidebarProps) {
   const { cart, cartTotal, updateCartQty, removeFromCart, checkout, products } = useApp();
   const [checkoutMode, setCheckoutMode] = useState(false);
 
-  const handleCheckout = (data: CheckoutData) => {
+  const handleCheckout = async (data: CheckoutData) => {
     if (cart.length === 0) { toast.error("Cart is empty"); return; }
-    const orderId = checkout(data);
+    const orderId = await checkout(data);
     if (orderId) {
       toast.success(`Order ${orderId} placed!`);
       setCheckoutMode(false);

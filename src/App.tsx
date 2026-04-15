@@ -24,7 +24,7 @@ const App = () => (
             <Route path="/about" element={<Layout><About /></Layout>} />
             <Route path="/specials" element={<Layout><Specials /></Layout>} />
             
-            {/* Admin Page (no Header/Footer) */}
+            {/* Admin Page (NO Header/Footer - standalone) */}
             <Route path="/admin" element={<AdminDashboard />} />
             
             {/* 404 */}

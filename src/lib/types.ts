@@ -3,10 +3,13 @@ export interface Product {
   name: string;
   category: string;
   price: number;
+  cost: number;  // 🆕 NEW - Food cost per unit
   unit: string;
   inventory: number;
   image: string;
+  imageBase64?: string;  // 🆕 For consistency
   isAvailable: boolean;
+  description?: string;  // 🆕 Optional description
 }
 
 export interface CartItem {
@@ -31,8 +34,10 @@ export interface Order {
   deliveryType: "delivery" | "pickup";
   notes: string;
   contact: string;
-  items: { name: string; quantity: number; price: number; unit: string }[];
+  items: { name: string; quantity: number; price: number; cost?: number; unit: string }[];  // 🆕 Added cost
   total: number;
+  totalCost?: number;  // 🆕 Total cost of items
+  profit?: number;  // 🆕 Calculated profit
   status: OrderStatus;
 }
 
@@ -80,12 +85,12 @@ export const CATEGORY_ICONS: Record<string, string> = {
 export const COUNTRY_CODES = [
   { code: "+63", label: "🇵🇭 +63", country: "PH" },
   { code: "+1", label: "🇺🇸 +1", country: "US" },
-  { code: "+44", label: "🇬🇧 +44", country: "UK" },
+  { code: "+44", label: "🇬 +44", country: "UK" },
   { code: "+61", label: "🇦🇺 +61", country: "AU" },
   { code: "+81", label: "🇯🇵 +81", country: "JP" },
   { code: "+82", label: "🇰🇷 +82", country: "KR" },
   { code: "+65", label: "🇸🇬 +65", country: "SG" },
   { code: "+60", label: "🇲🇾 +60", country: "MY" },
   { code: "+66", label: "🇹🇭 +66", country: "TH" },
-  { code: "+971", label: "🇦🇪 +971", country: "AE" },
+  { code: "+971", label: "🇦 +971", country: "AE" },
 ];

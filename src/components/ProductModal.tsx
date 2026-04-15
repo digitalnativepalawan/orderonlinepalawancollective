@@ -1,131 +1,248 @@
-import { useState, useRef, useEffect } from "react";
-import { Product, CATEGORIES } from "@/lib/types";
-import { X, Upload, Image as ImageIcon, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect } from "react";
+import { Product } from "@/lib/types";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CATEGORIES } from "@/lib/types";
+import { toast } from "sonner";
+import { Calculator, TrendingUp, DollarSign } from "lucide-react";
 
 interface ProductModalProps {
   open: boolean;
   onClose: () => void;
-  product?: Product | null;
+  product: Product | null;
   onSave: (data: Omit<Product, "id"> & { id?: string }) => void;
 }
 
 export default function ProductModal({ open, onClose, product, onSave }: ProductModalProps) {
-  const [name, setName] = useState("");
-  const [category, setCategory] = useState<string>(CATEGORIES[0]);
-  const [price, setPrice] = useState("");
-  const [unit, setUnit] = useState("pack");
-  const [inventory, setInventory] = useState("0");
-  const [isAvailable, setIsAvailable] = useState(true);
-  const [imagePreview, setImagePreview] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [uploading, setUploading] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [formData, setFormData] = useState({
+    name: "",
+    price: 0,
+    cost: 0,
+    category: "Meats",
+    description: "",
+    imageBase64: "",
+    inventory: 0,
+    isAvailable: true,
+    unit: "kg",
+  });
+
+  const [imagePreview, setImagePreview] = useState<string>("");
+
+  // Calculate margin and profit
+  const profit = formData.price - formData.cost;
+  const margin = formData.price > 0 ? ((profit / formData.price) * 100) : 0;
 
   useEffect(() => {
     if (product) {
-      setName(product.name);
-      setCategory(product.category);
-      setPrice(String(product.price));
-      setUnit(product.unit);
-      setInventory(String(product.inventory));
-      setIsAvailable(product.isAvailable);
-      setImagePreview(product.image.startsWith("data:") ? product.image : "");
-      setImageUrl(product.image.startsWith("http") ? product.image : "");
+      setFormData({
+        name: product.name,
+        price: product.price,
+        cost: product.cost || 0,
+        category: product.category,
+        description: product.description || "",
+        imageBase64: product.imageBase64 || product.image || "",
+        inventory: product.inventory,
+        isAvailable: product.isAvailable,
+        unit: product.unit || "kg",
+      });
+      setImagePreview(product.imageBase64 || product.image || "");
     } else {
-      setName(""); setCategory(CATEGORIES[0]); setPrice(""); setUnit("pack");
-      setInventory("0"); setIsAvailable(true); setImagePreview(""); setImageUrl("");
+      setFormData({
+        name: "",
+        price: 0,
+        cost: 0,
+        category: "Meats",
+        description: "",
+        imageBase64: "",
+        inventory: 0,
+        isAvailable: true,
+        unit: "kg",
+      });
+      setImagePreview("");
     }
   }, [product, open]);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const ext = file.name.split('.').pop() || 'jpg';
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
-      const { error } = await supabase.storage.from('product-images').upload(fileName, file);
-      if (error) throw error;
-      const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(fileName);
-      setImageUrl(urlData.publicUrl);
-      setImagePreview("");
-    } catch (err) {
-      console.error('Upload failed:', err);
-      // Fallback to base64
+    if (file) {
       const reader = new FileReader();
-      reader.onload = (ev) => {
-        setImagePreview(ev.target?.result as string);
-        setImageUrl("");
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        setFormData(prev => ({ ...prev, imageBase64: base64 }));
+        setImagePreview(base64);
       };
       reader.readAsDataURL(file);
-    } finally {
-      setUploading(false);
     }
   };
 
-  const handleSave = () => {
-    if (!name.trim()) return;
-    let finalImage = "";
-    if (imagePreview.startsWith("data:")) finalImage = imagePreview;
-    else if (imageUrl) finalImage = imageUrl;
-    else finalImage = `https://placehold.co/400x300/E8DCC8/6B5B3E?text=${encodeURIComponent(name.slice(0, 14))}`;
-
-    onSave({
-      ...(product ? { id: product.id } : {}),
-      name: name.trim(),
-      category,
-      price: parseFloat(price) || 0,
-      unit,
-      inventory: parseInt(inventory) || 0,
-      image: finalImage,
-      isAvailable,
-    });
+  const handleSubmit = () => {
+    if (!formData.name || formData.price <= 0) {
+      toast.error("Please fill in required fields");
+      return;
+    }
+    if (formData.cost > formData.price) {
+      toast.warning("Cost is higher than selling price!");
+    }
+    onSave(formData);
     onClose();
   };
 
-  if (!open) return null;
+  const getMarginColor = () => {
+    if (margin >= 30) return "text-success bg-success/10";
+    if (margin >= 15) return "text-warning bg-warning/10";
+    if (margin >= 0) return "text-destructive bg-destructive/10";
+    return "text-destructive bg-destructive/20";
+  };
 
   return (
-    <div className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
-      <div className="bg-card w-full max-w-md rounded-t-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto shadow-2xl border border-border" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="font-heading text-lg font-bold text-card-foreground">{product ? "Edit Product" : "Add Product"}</h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-muted transition-colors text-muted-foreground"><X size={18} /></button>
-        </div>
-        <div className="p-4 space-y-3">
-          <input value={name} onChange={e => setName(e.target.value)} placeholder="Product name" className="w-full px-3 py-2.5 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground" />
-          <select value={category} onChange={e => setCategory(e.target.value)} className="w-full px-3 py-2.5 rounded-lg bg-secondary border border-border text-sm text-foreground">
-            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <div className="flex gap-3">
-            <input value={price} onChange={e => setPrice(e.target.value)} placeholder="Price" type="number" className="flex-1 px-3 py-2.5 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground" />
-            <input value={unit} onChange={e => setUnit(e.target.value)} placeholder="Unit" className="w-24 px-3 py-2.5 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground" />
-          </div>
-          <input value={inventory} onChange={e => setInventory(e.target.value)} placeholder="Inventory" type="number" className="w-full px-3 py-2.5 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground" />
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{product ? "Edit Product" : "Add New Product"}</DialogTitle>
+        </DialogHeader>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-card-foreground flex items-center gap-1.5"><ImageIcon size={14} /> Product Image</label>
-            <button onClick={() => fileRef.current?.click()} disabled={uploading} className="w-full py-3 rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors flex items-center justify-center gap-2 text-sm text-muted-foreground disabled:opacity-50">
-              {uploading ? <><Loader2 size={16} className="animate-spin" /> Uploading...</> : <><Upload size={16} /> Upload from device</>}
-            </button>
-            <input ref={fileRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
-            {(imagePreview || imageUrl) && (
-              <img src={imagePreview || imageUrl} alt="Preview" className="h-24 object-contain rounded-lg mx-auto" />
+        <div className="space-y-4 py-4">
+          {/* Product Name */}
+          <div>
+            <Label>Product Name *</Label>
+            <Input
+              value={formData.name}
+              onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="e.g., US Tenderloin"
+            />
+          </div>
+
+          {/* Price & Cost Row */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Selling Price (₱) *</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={formData.price}
+                onChange={e => setFormData(prev => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
+                placeholder="0.00"
+              />
+            </div>
+            <div>
+              <Label>Food Cost (₱) *</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={formData.cost}
+                onChange={e => setFormData(prev => ({ ...prev, cost: parseFloat(e.target.value) || 0 }))}
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+
+          {/* Profit Margin Display */}
+          <div className={`rounded-lg p-3 flex items-center justify-between ${getMarginColor()}`}>
+            <div className="flex items-center gap-2">
+              <TrendingUp size={18} />
+              <span className="text-sm font-medium">Profit Margin:</span>
+            </div>
+            <span className="text-lg font-bold">
+              {margin.toFixed(1)}%
+            </span>
+          </div>
+
+          {/* Profit Per Unit */}
+          <div className="bg-primary/10 rounded-lg p-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Calculator size={18} className="text-primary" />
+              <span className="text-sm font-medium">Profit Per Unit:</span>
+            </div>
+            <span className="text-lg font-bold text-primary">
+              ₱{profit.toFixed(2)}
+            </span>
+          </div>
+
+          {/* Category & Unit */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Category</Label>
+              <Select value={formData.category} onValueChange={v => setFormData(prev => ({ ...prev, category: v }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CATEGORIES.map(c => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Unit</Label>
+              <Select value={formData.unit} onValueChange={v => setFormData(prev => ({ ...prev, unit: v }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="kg">kg</SelectItem>
+                  <SelectItem value="pack">pack</SelectItem>
+                  <SelectItem value="pcs">pcs</SelectItem>
+                  <SelectItem value="liter">liter</SelectItem>
+                  <SelectItem value="g">g</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Inventory */}
+          <div>
+            <Label>Inventory Stock</Label>
+            <Input
+              type="number"
+              value={formData.inventory}
+              onChange={e => setFormData(prev => ({ ...prev, inventory: parseInt(e.target.value) || 0 }))}
+              placeholder="0"
+            />
+          </div>
+
+          {/* Description */}
+          <div>
+            <Label>Description</Label>
+            <Textarea
+              value={formData.description}
+              onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
+              placeholder="Product description..."
+              rows={3}
+            />
+          </div>
+
+          {/* Image Upload */}
+          <div>
+            <Label>Product Image</Label>
+            <input type="file" accept="image/*" onChange={handleImageUpload} className="mt-1" />
+            {imagePreview && (
+              <img src={imagePreview} alt="Preview" className="mt-2 h-32 w-full object-cover rounded-lg" />
             )}
-            <input value={imageUrl} onChange={e => { setImageUrl(e.target.value); setImagePreview(""); }} placeholder="Or paste image URL" className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-xs text-foreground placeholder:text-muted-foreground" />
           </div>
 
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={isAvailable} onChange={e => setIsAvailable(e.target.checked)} className="w-4 h-4 rounded accent-primary" />
-            <span className="text-sm text-card-foreground">Available for users</span>
-          </label>
+          {/* Availability Toggle */}
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="available"
+              checked={formData.isAvailable}
+              onChange={e => setFormData(prev => ({ ...prev, isAvailable: e.target.checked }))}
+              className="rounded"
+            />
+            <Label htmlFor="available">Available for Sale</Label>
+          </div>
         </div>
-        <div className="flex gap-2 p-4 border-t border-border">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-lg bg-secondary text-secondary-foreground font-medium text-sm">Cancel</button>
-          <button onClick={handleSave} className="flex-1 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity">Save</button>
-        </div>
-      </div>
-    </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSubmit}>Save Product</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

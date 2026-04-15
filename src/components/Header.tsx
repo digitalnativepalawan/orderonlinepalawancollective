@@ -1,4 +1,4 @@
-import { Sun, Moon, ShoppingCart, Lock, LogOut, Menu } from "lucide-react";
+import { Sun, Moon, ShoppingCart, Lock, LogOut, Menu, Facebook, Instagram } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { useTheme } from "@/hooks/useTheme";
 import { useState } from "react";
@@ -18,6 +18,11 @@ export default function Header({ onOpenCart, onOpenAdmin }: HeaderProps) {
     { name: "About", href: "/about" },
     // Add more later: { name: "Blog", href: "/blog" },
     // Add more later: { name: "Specials", href: "/specials" },
+  ];
+
+  const socialLinks = [
+    { name: "Facebook", icon: Facebook, href: "https://web.facebook.com/jayceetrading" },
+    { name: "Instagram", icon: Instagram, href: "https://www.instagram.com/jayceetradingservices/" },
   ];
 
   return (
@@ -59,6 +64,22 @@ export default function Header({ onOpenCart, onOpenAdmin }: HeaderProps) {
 
         {/* Right Side Actions */}
         <div className="flex items-center gap-2">
+          {/* Social Icons (Desktop Only) */}
+          <div className="hidden lg:flex items-center gap-1 mr-2">
+            {socialLinks.map((social) => (
+              <a
+                key={social.name}
+                href={social.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 rounded-full bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
+                aria-label={social.name}
+              >
+                <social.icon size={18} />
+              </a>
+            ))}
+          </div>
+
           <button onClick={toggle} className="p-2.5 rounded-full bg-secondary text-secondary-foreground hover:bg-muted transition-colors" aria-label="Toggle theme">
             {dark ? <Sun size={18} /> : <Moon size={18} />}
           </button>
@@ -107,6 +128,22 @@ export default function Header({ onOpenCart, onOpenAdmin }: HeaderProps) {
                 {link.name}
               </Link>
             ))}
+            
+            {/* Social Links (Mobile) */}
+            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border">
+              {socialLinks.map((social) => (
+                <a
+                  key={social.name}
+                  href={social.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground px-3 py-2 rounded-lg transition-colors"
+                >
+                  <social.icon size={18} />
+                  {social.name}
+                </a>
+              ))}
+            </div>
           </nav>
         </div>
       )}

@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import {
   Package, ClipboardList, Settings, BarChart3, LogOut, Search,
   Plus, Download, Upload, AlertTriangle, MessageCircle,
-  FileText, ChevronDown, TrendingUp, ShoppingBag
+  FileText, ChevronDown, TrendingUp, ShoppingBag, Calculator, DollarSign
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ProductCard from "./ProductCard";
@@ -42,7 +42,6 @@ export default function AdminDashboard() {
   const [productCategory, setProductCategory] = useState("all");
   const csvRef = useRef<HTMLInputElement>(null);
 
-  // Exit admin and return to home
   const handleExitAdmin = () => {
     setAdminMode(false);
     navigate("/");
@@ -71,7 +70,7 @@ export default function AdminDashboard() {
     return list;
   }, [products, productSearch, productCategory]);
 
-  // Analytics
+  // 🆕 Enhanced Analytics with Profit Tracking
   const analytics = useMemo(() => {
     const now = new Date();
     const todayStr = now.toISOString().slice(0, 10);
@@ -83,15 +82,86 @@ export default function AdminDashboard() {
     const todayRevenue = todayOrders.reduce((s, o) => s + o.total, 0);
     const weekRevenue = weekOrders.reduce((s, o) => s + o.total, 0);
 
+    // Calculate costs and profits
+    const todayCost = todayOrders.reduce((s, o) => {
+      return s + o.items.reduce((itemSum, item) => {
+        const product = products.find(p => p.name === item.name);
+        return itemSum + ((product?.cost || 0) * item.quantity);
+      }, 0);
+    }, 0);
+
+    const weekCost = weekOrders.reduce((s, o) => {
+      return s + o.items.reduce((itemSum, item) => {
+        const product = products.find(p => p.name === item.name);
+        return itemSum + ((product?.cost || 0) * item.quantity);
+      }, 0);
+    }, 0);
+
+    const todayProfit = todayRevenue - todayCost;
+    const weekProfit = weekRevenue - weekCost;
+
+    // Low stock alerts
     const lowStock = products.filter(p => p.inventory <= 3 && p.inventory > 0);
 
-    const itemSales: Record<string, number> = {};
-    orders.forEach(o => o.items.forEach(i => {
-      itemSales[i.name] = (itemSales[i.name] || 0) + i.quantity;
-    }));
-    const topProducts = Object.entries(itemSales).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    // Low margin alerts
+    const lowMarginProducts = products
+      .filter(p => p.price > 0 && ((p.price - (p.cost || 0)) / p.price * 100) < 15)
+      .map(p => ({
+        ...p,
+        margin: ((p.price - (p.cost || 0)) / p.price * 100)
+      }))
+      .sort((a, b) => a.margin - b.margin)
+      .slice(0, 5);
 
-    return { todayOrders: todayOrders.length, weekOrders: weekOrders.length, todayRevenue, weekRevenue, lowStock, topProducts };
+    // Item sales with profit
+    const itemSales: Record<string, { quantity: number; profit: number }> = {};
+    orders.forEach(o => o.items.forEach(i => {
+      const product = products.find(p => p.name === i.name);
+      const cost = product?.cost || 0;
+      const profit = (i.price - cost) * i.quantity;
+      if (!itemSales[i.name]) {
+        itemSales[i.name] = { quantity: 0, profit: 0 };
+      }
+      itemSales[i.name].quantity += i.quantity;
+      itemSales[i.name].profit += profit;
+    }));
+
+    const topProducts = Object.entries(itemSales)
+      .sort((a, b) => b[1].quantity - a[1].quantity)
+      .slice(0, 5);
+
+    const topProfitProducts = Object.entries(itemSales)
+      .sort((a, b) => b[1].profit - a[1].profit)
+      .slice(0, 5);
+
+    // Average margin across all products
+    const avgMargin = products.filter(p => p.price > 0).length > 0
+      ? products.filter(p => p.price > 0).reduce((sum, p) => {
+          return sum + ((p.price - (p.cost || 0)) / p.price * 100);
+        }, 0) / products.filter(p => p.price > 0).length
+      : 0;
+
+    // Total inventory value
+    const inventoryValue = products.reduce((sum, p) => sum + ((p.cost || 0) * p.inventory), 0);
+    const inventoryRetailValue = products.reduce((sum, p) => sum + (p.price * p.inventory), 0);
+
+    return {
+      todayOrders: todayOrders.length,
+      weekOrders: weekOrders.length,
+      todayRevenue,
+      weekRevenue,
+      todayCost,
+      weekCost,
+      todayProfit,
+      weekProfit,
+      lowStock,
+      lowMarginProducts,
+      topProducts,
+      topProfitProducts,
+      avgMargin,
+      inventoryValue,
+      inventoryRetailValue,
+    };
   }, [orders, products]);
 
   const sendWhatsApp = (order: Order) => {
@@ -312,24 +382,58 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* ANALYTICS TAB */}
+        {/* 🆕 ENHANCED ANALYTICS TAB */}
         {tab === "analytics" && (
-          <div className="space-y-5">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {[
-                { label: "Today's Orders", value: analytics.todayOrders, icon: ShoppingBag, color: "text-primary" },
-                { label: "Today's Revenue", value: `₱${analytics.todayRevenue.toFixed(0)}`, icon: TrendingUp, color: "text-success" },
-                { label: "Week Orders", value: analytics.weekOrders, icon: ClipboardList, color: "text-blue-500" },
-                { label: "Week Revenue", value: `₱${analytics.weekRevenue.toFixed(0)}`, icon: BarChart3, color: "text-orange-500" },
-              ].map((stat, i) => (
-                <div key={i} className="bg-card rounded-xl border border-border p-4">
-                  <stat.icon size={20} className={`${stat.color} mb-2`} />
-                  <p className="text-xl font-bold text-card-foreground">{stat.value}</p>
-                  <p className="text-xs text-muted-foreground">{stat.label}</p>
-                </div>
-              ))}
+          <div className="space-y-6">
+            {/* Revenue & Profit Summary */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="bg-card rounded-xl border border-border p-4">
+                <ShoppingBag size={20} className="text-primary mb-2" />
+                <p className="text-2xl font-bold">{analytics.todayOrders}</p>
+                <p className="text-xs text-muted-foreground">Today's Orders</p>
+              </div>
+              <div className="bg-card rounded-xl border border-border p-4">
+                <TrendingUp size={20} className="text-success mb-2" />
+                <p className="text-2xl font-bold">₱{analytics.todayRevenue.toFixed(0)}</p>
+                <p className="text-xs text-muted-foreground">Today's Revenue</p>
+              </div>
+              <div className="bg-card rounded-xl border border-border p-4">
+                <DollarSign size={20} className="text-blue-500 mb-2" />
+                <p className="text-2xl font-bold">₱{analytics.todayProfit.toFixed(0)}</p>
+                <p className="text-xs text-muted-foreground">Today's Profit</p>
+              </div>
+              <div className="bg-card rounded-xl border border-border p-4">
+                <BarChart3 size={20} className="text-orange-500 mb-2" />
+                <p className="text-2xl font-bold">{analytics.avgMargin.toFixed(1)}%</p>
+                <p className="text-xs text-muted-foreground">Avg Margin</p>
+              </div>
             </div>
 
+            {/* Weekly Summary */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="bg-card rounded-xl border border-border p-4">
+                <ClipboardList size={20} className="text-blue-500 mb-2" />
+                <p className="text-2xl font-bold">{analytics.weekOrders}</p>
+                <p className="text-xs text-muted-foreground">Week Orders</p>
+              </div>
+              <div className="bg-card rounded-xl border border-border p-4">
+                <TrendingUp size={20} className="text-success mb-2" />
+                <p className="text-2xl font-bold">₱{analytics.weekRevenue.toFixed(0)}</p>
+                <p className="text-xs text-muted-foreground">Week Revenue</p>
+              </div>
+              <div className="bg-card rounded-xl border border-border p-4">
+                <Calculator size={20} className="text-primary mb-2" />
+                <p className="text-2xl font-bold">₱{analytics.weekProfit.toFixed(0)}</p>
+                <p className="text-xs text-muted-foreground">Week Profit</p>
+              </div>
+              <div className="bg-card rounded-xl border border-border p-4">
+                <Package size={20} className="text-warning mb-2" />
+                <p className="text-2xl font-bold">₱{analytics.inventoryValue.toFixed(0)}</p>
+                <p className="text-xs text-muted-foreground">Stock Value</p>
+              </div>
+            </div>
+
+            {/* Low Stock Alerts */}
             {analytics.lowStock.length > 0 && (
               <div className="bg-warning/10 border border-warning/20 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-2">
@@ -344,17 +448,51 @@ export default function AdminDashboard() {
               </div>
             )}
 
+            {/* Low Margin Alerts */}
+            {analytics.lowMarginProducts.length > 0 && (
+              <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle size={16} className="text-destructive" />
+                  <p className="text-sm font-semibold text-foreground">Low Profit Margin Products</p>
+                </div>
+                <div className="space-y-1">
+                  {analytics.lowMarginProducts.map(p => (
+                    <p key={p.id} className="text-sm text-foreground">{p.name} — <span className="text-destructive font-semibold">{p.margin.toFixed(1)}% margin</span></p>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Top Selling Products */}
             {analytics.topProducts.length > 0 && (
               <div className="bg-card rounded-xl border border-border p-4">
                 <p className="text-sm font-semibold text-card-foreground mb-3">🏆 Top Selling Products</p>
                 <div className="space-y-2">
-                  {analytics.topProducts.map(([name, qty], i) => (
+                  {analytics.topProducts.map(([name, data], i) => (
                     <div key={name} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-muted-foreground w-5">{i + 1}.</span>
                         <span className="text-sm text-card-foreground">{name}</span>
                       </div>
-                      <span className="text-xs font-semibold text-primary">{qty} sold</span>
+                      <span className="text-xs font-semibold text-primary">{data.quantity} sold</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Top Profit Products */}
+            {analytics.topProfitProducts.length > 0 && (
+              <div className="bg-card rounded-xl border border-border p-4">
+                <p className="text-sm font-semibold text-card-foreground mb-3">💰 Top Profit Products</p>
+                <div className="space-y-2">
+                  {analytics.topProfitProducts.map(([name, data], i) => (
+                    <div key={name} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-muted-foreground w-5">{i + 1}.</span>
+                        <span className="text-sm text-card-foreground">{name}</span>
+                      </div>
+                      <span className="text-xs font-semibold text-success">₱{data.profit.toFixed(0)} profit</span>
                     </div>
                   ))}
                 </div>

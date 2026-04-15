@@ -1,5 +1,5 @@
 import { useApp } from "@/context/AppContext";
-import { Phone, Mail, Facebook, Instagram, MapPin } from "lucide-react";
+import { Phone, Mail, MapPin, Globe, AtSign } from "lucide-react";
 
 export default function Footer() {
   const { business } = useApp();

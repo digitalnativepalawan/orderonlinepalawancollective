@@ -5,9 +5,10 @@ import { exportProductsCSV, importProductsCSV } from "@/lib/store";
 import { toast } from "sonner";
 import {
   Package, ClipboardList, Settings, BarChart3, LogOut, Search,
-  Plus, Download, Upload, AlertTriangle, CheckCircle, MessageCircle,
+  Plus, Download, Upload, AlertTriangle, MessageCircle,
   FileText, ChevronDown, TrendingUp, ShoppingBag
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import ProductCard from "./ProductCard";
 import ProductModal from "./ProductModal";
 import BusinessModal from "./BusinessModal";
@@ -29,16 +30,23 @@ export default function AdminDashboard() {
     updateOrderStatus, setAdminMode,
   } = useApp();
 
+  const navigate = useNavigate();
+
   const [tab, setTab] = useState<"orders" | "products" | "settings" | "analytics">("orders");
   const [orderSearch, setOrderSearch] = useState("");
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>("all");
   const [productModalOpen, setProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [businessModalOpen, setBusinessModalOpen] = useState(false);
   const [invoiceOrder, setInvoiceOrder] = useState<Order | null>(null);
   const [productSearch, setProductSearch] = useState("");
   const [productCategory, setProductCategory] = useState("all");
   const csvRef = useRef<HTMLInputElement>(null);
+
+  // Exit admin and return to home
+  const handleExitAdmin = () => {
+    setAdminMode(false);
+    navigate("/");
+  };
 
   // Orders filtering
   const filteredOrders = useMemo(() => {
@@ -144,7 +152,7 @@ export default function AdminDashboard() {
             <h1 className="font-heading text-lg font-bold text-foreground">{business.businessName}</h1>
             <span className="bg-destructive text-destructive-foreground text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase">Admin</span>
           </div>
-          <button onClick={() => setAdminMode(false)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-destructive/10 text-destructive text-xs font-medium hover:bg-destructive/20 transition-colors">
+          <button onClick={handleExitAdmin} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-destructive/10 text-destructive text-xs font-medium hover:bg-destructive/20 transition-colors">
             <LogOut size={14} /> Exit
           </button>
         </div>
@@ -358,7 +366,6 @@ export default function AdminDashboard() {
 
       {/* Modals */}
       <ProductModal open={productModalOpen} onClose={() => { setProductModalOpen(false); setEditingProduct(null); }} product={editingProduct} onSave={handleSaveProduct} />
-      {!businessModalOpen && tab !== "settings" && null}
       <InvoiceModal open={!!invoiceOrder} onClose={() => setInvoiceOrder(null)} order={invoiceOrder} business={business} />
     </div>
   );

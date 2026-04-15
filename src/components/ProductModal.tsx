@@ -19,6 +19,7 @@ export default function ProductModal({ open, onClose, product, onSave }: Product
   const [isAvailable, setIsAvailable] = useState(true);
   const [imagePreview, setImagePreview] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {

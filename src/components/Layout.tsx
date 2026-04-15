@@ -11,13 +11,26 @@ interface LayoutProps {
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const { adminMode } = useApp();
+  const { adminMode, setAdminMode } = useApp();
   const [cartOpen, setCartOpen] = useState(false);
   const [adminLoginOpen, setAdminLoginOpen] = useState(false);
 
   // If in admin mode, don't show header/footer
   if (adminMode) {
-    return <>{children}</>;
+    return (
+      <>
+        {children}
+        <CartSidebar open={cartOpen} onClose={() => setCartOpen(false)} />
+        <AdminLoginModal 
+          open={adminLoginOpen} 
+          onClose={() => setAdminLoginOpen(false)} 
+          onLogin={() => {
+            setAdminMode(true);
+            setAdminLoginOpen(false);
+          }} 
+        />
+      </>
+    );
   }
 
   return (
@@ -38,8 +51,8 @@ export default function Layout({ children }: LayoutProps) {
         open={adminLoginOpen} 
         onClose={() => setAdminLoginOpen(false)} 
         onLogin={() => {
+          setAdminMode(true);
           setAdminLoginOpen(false);
-          // Admin login logic handled by AppContext
         }} 
       />
     </div>

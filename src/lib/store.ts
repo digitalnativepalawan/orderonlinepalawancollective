@@ -16,6 +16,9 @@ const DEFAULT_BUSINESS: BusinessSettings = {
   instagram: "@jaycee.tradingservices",
   address: "For orders and inquiries",
   logoBase64: "",
+  whatsappTemplate: "Hello {name}, your order #{id} is {status}. Total: ₱{total}. Thank you!",
+  invoiceFooter: "Thank you for your order! For inquiries, contact us.",
+  taxRate: 0,
 };
 
 function load<T>(key: string, fallback: () => T): T {

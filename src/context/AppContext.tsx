@@ -1,9 +1,15 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { Product, CartItem, Order, BusinessSettings } from "@/lib/types";
+import { Product, CartItem, Order, BusinessSettings, CheckoutData, OrderStatus } from "@/lib/types";
 import {
   loadProducts, saveProducts, loadCart, saveCart,
   loadOrders, saveOrders, loadBusiness, saveBusiness,
 } from "@/lib/store";
+
+function generateOrderId(): string {
+  const ts = Date.now().toString(36).toUpperCase();
+  const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `ORD-${ts}-${rand}`;
+}
 
 interface AppState {
   products: Product[];
@@ -17,7 +23,7 @@ interface AppState {
   updateCartQty: (id: string, delta: number) => void;
   removeFromCart: (id: string) => void;
   clearCart: () => void;
-  checkout: (name: string, contact: string) => string | null;
+  checkout: (data: CheckoutData) => string | null;
   updateProduct: (product: Product) => void;
   addProduct: (product: Omit<Product, "id">) => void;
   deleteProduct: (id: string) => void;
@@ -25,7 +31,7 @@ interface AppState {
   updateInventory: (id: string, val: number) => void;
   setBusiness: (b: BusinessSettings) => void;
   addOrder: (o: Order) => void;
-  markOrderReady: (id: string) => void;
+  updateOrderStatus: (id: string, status: OrderStatus) => void;
   cartTotal: number;
   cartCount: number;
 }
@@ -79,14 +85,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const clearCart = useCallback(() => setCartState([]), []);
 
-  const checkout = useCallback((name: string, contact: string): string | null => {
+  const checkout = useCallback((data: CheckoutData): string | null => {
     if (cart.length === 0) return null;
-    const orderId = Date.now().toString();
+    const orderId = generateOrderId();
+    const now = new Date();
     const order: Order = {
       id: orderId,
-      date: new Date().toLocaleString(),
-      customer: name || "Guest",
-      contact: contact || "N/A",
+      date: now.toLocaleString(),
+      timestamp: now.toISOString(),
+      customer: data.name || "Guest",
+      email: data.email || "",
+      phone: data.phone || "",
+      countryCode: data.countryCode || "+63",
+      deliveryType: data.deliveryType || "pickup",
+      notes: data.notes || "",
+      contact: `${data.countryCode}${data.phone}`,
       items: cart.map(i => ({ name: i.name, quantity: i.quantity, price: i.price, unit: i.unit })),
       total: cart.reduce((s, i) => s + i.price * i.quantity, 0),
       status: "Pending",
@@ -98,7 +111,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }));
     setOrdersState(prev => [order, ...prev]);
     setCartState([]);
-    return orderId.slice(-6);
+    return orderId;
   }, [cart]);
 
   const updateProduct = useCallback((product: Product) => {
@@ -127,8 +140,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setOrdersState(prev => [o, ...prev]);
   }, []);
 
-  const markOrderReady = useCallback((id: string) => {
-    setOrdersState(prev => prev.map(o => o.id === id ? { ...o, status: "Ready for pickup" } : o));
+  const updateOrderStatus = useCallback((id: string, status: OrderStatus) => {
+    setOrdersState(prev => prev.map(o => o.id === id ? { ...o, status } : o));
   }, []);
 
   const cartTotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
@@ -139,7 +152,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       products, cart, orders, business, adminMode, setAdminMode,
       setProducts, addToCart, updateCartQty, removeFromCart, clearCart,
       checkout, updateProduct, addProduct, deleteProduct, toggleAvailability,
-      updateInventory, setBusiness, addOrder, markOrderReady, cartTotal, cartCount,
+      updateInventory, setBusiness, addOrder, updateOrderStatus, cartTotal, cartCount,
     }}>
       {children}
     </AppContext.Provider>

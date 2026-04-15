@@ -21,10 +21,10 @@ export default function Footer() {
           </div>
           <div className="space-y-2">
             {business.facebook && (
-              <p className="flex items-center gap-2"><Facebook size={14} /> {business.facebook}</p>
+              <p className="flex items-center gap-2"><Globe size={14} /> {business.facebook}</p>
             )}
             {business.instagram && (
-              <p className="flex items-center gap-2"><Instagram size={14} /> {business.instagram}</p>
+              <p className="flex items-center gap-2"><AtSign size={14} /> {business.instagram}</p>
             )}
           </div>
         </div>

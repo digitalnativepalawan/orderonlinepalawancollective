@@ -11,7 +11,7 @@ import { Search } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
 
 export default function Index() {
-  const { products, adminMode } = useApp();
+  const { products, adminMode, setAdminMode } = useApp();
   const [cartOpen, setCartOpen] = useState(false);
   const [adminLoginOpen, setAdminLoginOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -75,7 +75,7 @@ export default function Index() {
 
       <Footer />
       <CartSidebar open={cartOpen} onClose={() => setCartOpen(false)} />
-      <AdminLoginModal open={adminLoginOpen} onClose={() => setAdminLoginOpen(false)} onLogin={() => {}} />
+      <AdminLoginModal open={adminLoginOpen} onClose={() => setAdminLoginOpen(false)} onLogin={() => setAdminMode(true)} />
     </div>
   );
 }

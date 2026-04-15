@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Product, CATEGORIES } from "@/lib/types";
-import { X, Upload, Image as ImageIcon } from "lucide-react";
+import { X, Upload, Image as ImageIcon, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ProductModalProps {
   open: boolean;
@@ -18,6 +19,7 @@ export default function ProductModal({ open, onClose, product, onSave }: Product
   const [isAvailable, setIsAvailable] = useState(true);
   const [imagePreview, setImagePreview] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -36,15 +38,30 @@ export default function ProductModal({ open, onClose, product, onSave }: Product
     }
   }, [product, open]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setImagePreview(ev.target?.result as string);
-      setImageUrl("");
-    };
-    reader.readAsDataURL(file);
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
+      const { error } = await supabase.storage.from('product-images').upload(fileName, file);
+      if (error) throw error;
+      const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(fileName);
+      setImageUrl(urlData.publicUrl);
+      setImagePreview("");
+    } catch (err) {
+      console.error('Upload failed:', err);
+      // Fallback to base64
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setImagePreview(ev.target?.result as string);
+        setImageUrl("");
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleSave = () => {
@@ -89,8 +106,8 @@ export default function ProductModal({ open, onClose, product, onSave }: Product
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-card-foreground flex items-center gap-1.5"><ImageIcon size={14} /> Product Image</label>
-            <button onClick={() => fileRef.current?.click()} className="w-full py-3 rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <Upload size={16} /> Upload from device
+            <button onClick={() => fileRef.current?.click()} disabled={uploading} className="w-full py-3 rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors flex items-center justify-center gap-2 text-sm text-muted-foreground disabled:opacity-50">
+              {uploading ? <><Loader2 size={16} className="animate-spin" /> Uploading...</> : <><Upload size={16} /> Upload from device</>}
             </button>
             <input ref={fileRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
             {(imagePreview || imageUrl) && (

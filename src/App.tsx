@@ -8,20 +8,16 @@ import AdminDashboard from "@/components/AdminDashboard";
 import Index from "@/pages/Index";
 import About from "@/pages/About";
 import Specials from "@/pages/Specials";
-import Cart from "@/pages/Cart";
-import Checkout from "@/pages/Checkout";
 
 function App() {
   return (
     <AppProvider>
       <BrowserRouter>
         <Routes>
-          {/* All public routes - wrapped in Layout (Header + Footer) */}
+          {/* Public routes - wrapped in Layout (Header + Footer) */}
           <Route path="/" element={<Layout><Index /></Layout>} />
           <Route path="/about" element={<Layout><About /></Layout>} />
           <Route path="/specials" element={<Layout><Specials /></Layout>} />
-          <Route path="/cart" element={<Layout><Cart /></Layout>} />
-          <Route path="/checkout" element={<Layout><Checkout /></Layout>} />
           
           {/* Admin route - NO Layout wrapper (Admin has its own header) */}
           <Route path="/admin" element={<AdminDashboard />} />

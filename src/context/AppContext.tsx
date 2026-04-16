@@ -96,6 +96,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Calculate cart count
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
+  // ✅ ADDED: Load admin mode from localStorage on startup
+  useEffect(() => {
+    const savedAdminMode = localStorage.getItem('admin_mode');
+    if (savedAdminMode === 'true') {
+      setAdminMode(true);
+    }
+  }, []);
+
+  // ✅ ADDED: Save admin mode to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('admin_mode', adminMode.toString());
+  }, [adminMode]);
+
   // Load business settings from localStorage
   useEffect(() => {
     const savedBusiness = localStorage.getItem('jaycee_business');

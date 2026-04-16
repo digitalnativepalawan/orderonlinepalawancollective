@@ -96,7 +96,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Calculate cart count
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  // ✅ ADDED: Load admin mode from localStorage on startup
+  // Load admin mode from localStorage on startup
   useEffect(() => {
     const savedAdminMode = localStorage.getItem('admin_mode');
     if (savedAdminMode === 'true') {
@@ -104,7 +104,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
-  // ✅ ADDED: Save admin mode to localStorage whenever it changes
+  // Save admin mode to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('admin_mode', adminMode.toString());
   }, [adminMode]);
@@ -133,7 +133,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const { error } = await supabase
         .from('products')
-        .update({ isAvailable: product.isAvailable, inventory: product.inventory })
+        .update({ is_available: product.isAvailable, inventory: product.inventory })
         .eq('id', product.id);
       
       if (error) throw error;
@@ -154,14 +154,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (error) throw error;
       
       if (data && data.length > 0) {
-        setProducts(data);
+        // Map is_available from database to isAvailable in frontend
+        const mappedProducts = data.map(p => ({
+          ...p,
+          isAvailable: p.is_available
+        }));
+        setProducts(mappedProducts);
       } else {
         // Load default products if none exist
         const defaultProducts = getDefaultProducts();
         setProducts(defaultProducts);
         // Insert default products to Supabase
         for (const product of defaultProducts) {
-          await supabase.from('products').insert([product]);
+          await supabase.from('products').insert([{
+            ...product,
+            is_available: product.isAvailable
+          }]);
         }
       }
     } catch (error) {
@@ -276,7 +284,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const { error } = await supabase
         .from('products')
-        .update(product)
+        .update({ 
+          name: product.name,
+          category: product.category,
+          price: product.price,
+          unit: product.unit,
+          inventory: product.inventory,
+          image: product.image,
+          is_available: product.isAvailable
+        })
         .eq('id', product.id);
       
       if (error) throw error;
@@ -302,10 +318,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addProduct = async (product: Omit<Product, 'id'>) => {
     try {
-      const newProduct = { ...product, id: Date.now().toString() };
+      const newProduct = { 
+        id: Date.now().toString(),
+        name: product.name,
+        category: product.category,
+        price: product.price,
+        unit: product.unit,
+        inventory: product.inventory,
+        image: product.image,
+        is_available: product.isAvailable
+      };
       const { error } = await supabase.from('products').insert([newProduct]);
       if (error) throw error;
-      setProducts(prev => [...prev, newProduct]);
+      setProducts(prev => [...prev, { ...product, id: newProduct.id }]);
       toast({ title: 'Product added', description: product.name });
     } catch (error) {
       console.error('Error adding product:', error);
@@ -313,33 +338,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // ✅ FIXED: toggleAvailability now saves to Supabase immediately
+  // ✅ FIXED: toggleAvailability now uses correct column name "is_available"
   const toggleAvailability = useCallback(async (id: string) => {
     const product = products.find(p => p.id === id);
     if (!product) return;
     
-    const updatedProduct = { ...product, isAvailable: !product.isAvailable };
+    const newAvailableState = !product.isAvailable;
     
     // Update local state immediately
-    setProducts(prev => prev.map(p => p.id === id ? updatedProduct : p));
+    setProducts(prev => prev.map(p => 
+      p.id === id ? { ...p, isAvailable: newAvailableState } : p
+    ));
     
-    // Save to Supabase
+    // Save to Supabase using correct column name "is_available"
     try {
       const { error } = await supabase
         .from('products')
-        .update({ isAvailable: updatedProduct.isAvailable })
+        .update({ is_available: newAvailableState })
         .eq('id', id);
       
       if (error) throw error;
       
       toast({ 
-        title: updatedProduct.isAvailable ? 'Product available' : 'Product unavailable', 
-        description: `${updatedProduct.name} is now ${updatedProduct.isAvailable ? 'visible to customers' : 'hidden from customers'}`
+        title: newAvailableState ? 'Product available' : 'Product unavailable', 
+        description: `${product.name} is now ${newAvailableState ? 'visible to customers' : 'hidden from customers'}`
       });
     } catch (error) {
       console.error('Error toggling availability:', error);
       // Revert on error
-      setProducts(prev => prev.map(p => p.id === id ? product : p));
+      setProducts(prev => prev.map(p => 
+        p.id === id ? { ...p, isAvailable: product.isAvailable } : p
+      ));
       toast({ title: 'Error', description: 'Failed to update availability', variant: 'destructive' });
     }
   }, [products, toast]);

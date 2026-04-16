@@ -1,21 +1,20 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppProvider } from "@/context/AppContext";
-
-function HomePage() {
-  return (
-    <div style={{ padding: "40px", textAlign: "center" }}>
-      <h1>JayCee Trading & Services</h1>
-      <p>App is working! Now check your original App.tsx</p>
-    </div>
-  );
-}
+import Layout from "@/components/Layout";
+import AdminDashboard from "@/components/AdminDashboard";
+import Index from "@/pages/Index";
+import About from "@/pages/About";
+import Specials from "@/pages/Specials";
 
 function App() {
   return (
     <AppProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<Layout><Index /></Layout>} />
+          <Route path="/about" element={<Layout><About /></Layout>} />
+          <Route path="/specials" element={<Layout><Specials /></Layout>} />
+          <Route path="/admin" element={<AdminDashboard />} />
         </Routes>
       </BrowserRouter>
     </AppProvider>

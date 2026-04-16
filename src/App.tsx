@@ -1,29 +1,23 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppProvider } from "@/context/AppContext";
-import { Toaster } from "@/components/ui/toaster";
-import Layout from "@/components/Layout";
-import AdminDashboard from "@/components/AdminDashboard";
 
-// Pages
-import Index from "@/pages/Index";
-import About from "@/pages/About";
-import Specials from "@/pages/Specials";
+function HomePage() {
+  return (
+    <div style={{ padding: "40px", textAlign: "center" }}>
+      <h1>JayCee Trading & Services</h1>
+      <p>App is working! Now check your original App.tsx</p>
+    </div>
+  );
+}
 
 function App() {
   return (
     <AppProvider>
       <BrowserRouter>
         <Routes>
-          {/* Public routes - wrapped in Layout (Header + Footer) */}
-          <Route path="/" element={<Layout><Index /></Layout>} />
-          <Route path="/about" element={<Layout><About /></Layout>} />
-          <Route path="/specials" element={<Layout><Specials /></Layout>} />
-          
-          {/* Admin route - NO Layout wrapper (Admin has its own header) */}
-          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/" element={<HomePage />} />
         </Routes>
       </BrowserRouter>
-      <Toaster />
     </AppProvider>
   );
 }

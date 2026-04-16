@@ -27,6 +27,16 @@ interface Order {
   timestamp: string;
 }
 
+interface BusinessSettings {
+  logoBase64: string;
+  businessName: string;
+  phone: string;
+  email: string;
+  facebook: string;
+  instagram: string;
+  address: string;
+}
+
 interface AppContextType {
   products: Product[];
   setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
@@ -36,6 +46,9 @@ interface AppContextType {
   setCart: React.Dispatch<React.SetStateAction<any[]>>;
   adminMode: boolean;
   setAdminMode: React.Dispatch<React.SetStateAction<boolean>>;
+  business: BusinessSettings;
+  setBusiness: React.Dispatch<React.SetStateAction<BusinessSettings>>;
+  cartCount: number;
   loading: boolean;
   addToCart: (product: Product) => void;
   removeFromCart: (productId: string) => void;
@@ -47,6 +60,7 @@ interface AppContextType {
   addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
   toggleAvailability: (id: string) => Promise<void>;
   updateInventory: (id: string, newInventory: number) => Promise<void>;
+  updateBusinessSettings: (settings: BusinessSettings) => Promise<void>;
   fetchProducts: () => Promise<void>;
   fetchOrders: () => Promise<void>;
 }
@@ -59,13 +73,47 @@ export const useApp = () => {
   return context;
 };
 
+// Default business settings
+const DEFAULT_BUSINESS: BusinessSettings = {
+  logoBase64: "",
+  businessName: "JayCee Trading & Services",
+  phone: "09917093792",
+  email: "tradingjaycee@gmail.com",
+  facebook: "Jaycee Trading And Services",
+  instagram: "@jaycee.tradingservices",
+  address: "Supporting local farmers and artisans in Palawan"
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [cart, setCart] = useState<any[]>([]);
   const [adminMode, setAdminMode] = useState(false);
+  const [business, setBusiness] = useState<BusinessSettings>(DEFAULT_BUSINESS);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+
+  // Calculate cart count
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  // Load business settings from localStorage
+  useEffect(() => {
+    const savedBusiness = localStorage.getItem('jaycee_business');
+    if (savedBusiness) {
+      try {
+        setBusiness(JSON.parse(savedBusiness));
+      } catch (e) {
+        console.error('Failed to parse business settings', e);
+      }
+    }
+  }, []);
+
+  // Save business settings to localStorage whenever it changes
+  const updateBusinessSettings = useCallback(async (settings: BusinessSettings) => {
+    setBusiness(settings);
+    localStorage.setItem('jaycee_business', JSON.stringify(settings));
+    toast({ title: 'Business settings updated', description: 'Your changes have been saved' });
+  }, [toast]);
 
   // Save product to Supabase helper
   const saveProductToDb = useCallback(async (product: Product) => {
@@ -335,6 +383,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       orders, setOrders,
       cart, setCart,
       adminMode, setAdminMode,
+      business, setBusiness,
+      cartCount,
       loading,
       addToCart,
       removeFromCart,
@@ -346,6 +396,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addProduct,
       toggleAvailability,
       updateInventory,
+      updateBusinessSettings,
       fetchProducts,
       fetchOrders,
     }}>

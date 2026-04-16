@@ -1,24 +1,20 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '@/context/AppContext';
 import ProductCard from '@/components/ProductCard';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search } from 'lucide-react';
 
 export default function Index() {
   const { products, adminMode } = useApp();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
 
-  // ✅ FIXED: Filter by isAvailable AND inventory > 0
+  // Filter products - only show available products with stock
   const filtered = useMemo(() => {
-    // Only show products that are available AND have stock
     let list = products.filter(p => p.isAvailable === true && p.inventory > 0);
     
     if (search) {
       list = list.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
     }
-    if (category !== "all") {
+    if (category !== 'all') {
       list = list.filter(p => p.category === category);
     }
     
@@ -29,6 +25,17 @@ export default function Index() {
     const cats = new Set(products.map(p => p.category));
     return ['all', ...Array.from(cats)];
   }, [products]);
+
+  if (!products || products.length === 0) {
+    return (
+      <div className="container mx-auto px-4 py-20 text-center">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-48 mx-auto mb-4"></div>
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-64 mx-auto"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -45,28 +52,24 @@ export default function Index() {
 
       {/* Search and Filter */}
       <div className="flex flex-col sm:flex-row gap-4 mb-8">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input
-            type="text"
-            placeholder="Search products..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Select value={category} onValueChange={setCategory}>
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="Category" />
-          </SelectTrigger>
-          <SelectContent>
-            {categories.map(cat => (
-              <SelectItem key={cat} value={cat}>
-                {cat === 'all' ? 'All Categories' : cat}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <input
+          type="text"
+          placeholder="Search products..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-emerald-500 outline-none"
+        />
+        <select
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          className="px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
+        >
+          {categories.map(cat => (
+            <option key={cat} value={cat}>
+              {cat === 'all' ? 'All Categories' : cat}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Products Grid */}

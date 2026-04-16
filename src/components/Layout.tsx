@@ -35,7 +35,7 @@ export default function Layout({ children }: LayoutProps) {
         onLogin={() => {
           setAdminMode(true);
           setAdminLoginOpen(false);
-          // Redirect to admin page after login
+          // ✅ CORRECT: Force full page reload to admin page
           window.location.href = "/admin";
         }} 
       />

@@ -2,7 +2,7 @@ import { Sun, Moon, ShoppingCart, Lock, LogOut, Menu, X } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { useTheme } from "@/hooks/useTheme";
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";  // ✅ Removed useNavigate
 
 // Inline SVG Icons for Social Media (Reliable for builds)
 const FacebookIcon = ({ size = 20, className = "" }) => (
@@ -50,7 +50,7 @@ export default function Header({ onOpenCart, onOpenAdmin }: HeaderProps) {
   const { business, adminMode, setAdminMode, cartCount } = useApp();
   const { dark, toggle } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const navigate = useNavigate();
+  // ✅ Removed: const navigate = useNavigate();
 
   const navLinks = [
     { name: "About", href: "/about" },
@@ -62,14 +62,16 @@ export default function Header({ onOpenCart, onOpenAdmin }: HeaderProps) {
     { name: "Instagram", icon: InstagramIcon, href: "https://www.instagram.com/jayceetradingservices/" },
   ];
 
+  // ✅ FIXED: Use window.location.href instead of navigate
   const handleExitAdmin = () => {
     setAdminMode(false);
     setMobileMenuOpen(false);
-    navigate("/");
+    window.location.href = "/";
   };
 
+  // ✅ FIXED: Use window.location.href instead of navigate
   const handleGoToAdmin = () => {
-    navigate("/admin");
+    window.location.href = "/admin";
     setMobileMenuOpen(false);
   };
 
